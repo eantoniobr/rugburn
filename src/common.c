@@ -6,6 +6,35 @@ PSTR pszSelfPath = NULL;
 PSTR pszSelfName = NULL;
 PSTR pszLogPrefix = NULL;
 
+int strcmp(LPCSTR dest, LPCSTR src) {
+    int cmp;
+    do {
+        cmp = *dest - *src;
+        if (cmp > 0) {
+            return 1;
+        } else if (cmp < 0) {
+            return -1;
+        }
+    } while (*dest++ && *src++);
+    return 0;
+}
+
+int memcmp(LPCVOID dest, LPCVOID src, size_t size) {
+    LPCSTR bdest = (LPCSTR)dest;
+    LPCSTR bsrc = (LPCSTR)src;
+    int cmp;
+    while (size > 0) {
+        cmp = *bdest++ - *bsrc++;
+        if (cmp > 0) {
+            return 1;
+        } else if (cmp < 0) {
+            return -1;
+        }
+        --size;
+    }
+    return 0;
+}
+
 PVOID memcpy(PVOID dest, VOID const *src, size_t size) {
     BYTE *bdest = (BYTE *)dest;
     BYTE const *bsrc = (BYTE const *)src;
@@ -18,10 +47,10 @@ PVOID memcpy(PVOID dest, VOID const *src, size_t size) {
 
 PVOID memset(PVOID p, INT c, UINT size) {
     PCHAR data = (PCHAR)p;
-	while (size > 0) {
-		*data++ = c;
-		--size;
-	}
+    while (size > 0) {
+        *data++ = c;
+        --size;
+    }
     return p;
 }
 
@@ -39,6 +68,66 @@ PSTR GetSelfPath() {
 
 BOOL FileExists(LPCTSTR szPath) {
     return GetFileAttributes(szPath) != INVALID_FILE_ATTRIBUTES;
+}
+
+LPSTR ReadEntireFile(LPCSTR szPath) {
+    HANDLE hFile = NULL;
+    DWORD dwBytesRead = 0, dwBytesToRead = 0;
+    BOOL bErrorFlag = FALSE;
+    LPSTR buffer = NULL, data = NULL;
+
+    hFile = CreateFileA(szPath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        FatalError("Error opening file %s.", szPath);
+        ExitProcess(1);
+        return NULL;
+    }
+
+    dwBytesToRead = GetFileSize(hFile, NULL);
+    buffer = LocalAlloc(0, dwBytesToRead + 1);
+    memset(buffer, 0, dwBytesToRead + 1);
+
+    data = buffer;
+    while (dwBytesToRead > 0) {
+        bErrorFlag = ReadFile(hFile, data, dwBytesToRead, &dwBytesRead, NULL);
+
+        if (!bErrorFlag) {
+            FatalError("Error loading file %s.", szPath);
+            break;
+        }
+
+        data += dwBytesRead;
+        dwBytesToRead -= dwBytesRead;
+    }
+
+    CloseHandle(hFile);
+    return buffer;
+}
+
+VOID WriteEntireFile(LPCSTR szPath, LPCSTR data, DWORD dwBytesToWrite) {
+    HANDLE hFile = NULL;
+    DWORD dwBytesWritten;
+    BOOL bErrorFlag = FALSE;
+
+    hFile = CreateFile(szPath, FILE_WRITE_DATA, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        FatalError("Error creating file %s.", szPath);
+        return;
+    }
+
+    while (dwBytesToWrite > 0) {
+        bErrorFlag = WriteFile(hFile, data, dwBytesToWrite, &dwBytesWritten, NULL);
+
+        if (!bErrorFlag) {
+            FatalError("Error writing to file %s.", szPath);
+            break;
+        }
+
+        data += dwBytesWritten;
+        dwBytesToWrite -= dwBytesWritten;
+    }
+
+    CloseHandle(hFile);
 }
 
 VOID FatalError(PCHAR fmt, ...) {
@@ -147,8 +236,7 @@ PANGYAVER DetectPangyaVersion() {
     } else if (FileExists("PangyaJP.ini")) {
         return PANGYA_JP;
     } else if (FileExists("PangyaTH.ini")) {
-        // TODO: Detect actual PangyaTH separately.
-        return PANGYA_BR;
+        return PANGYA_TH;
     }
     return PANGYA_US;
 }
@@ -161,7 +249,7 @@ PSTR GetPangyaArg(PANGYAVER pangyaVersion) {
     case PANGYA_JP:
         return StrDupA("{E69B65A2-7A7E-4977-85E5-B19516D885CB}");
 
-    case PANGYA_BR:
+    case PANGYA_TH:
         return StrDupA("{E69B65A2-7A7E-4977-85E5-B19516D885CB}");
 
     default:

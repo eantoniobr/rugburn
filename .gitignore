@@ -1,3 +1,6 @@
 /obj/
 /out/
 /.vscode/
+/.vs/
+*.user
+gglog.txt

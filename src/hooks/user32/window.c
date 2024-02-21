@@ -1,7 +1,8 @@
 #include "window.h"
 #include "../../patch.h"
 
-PFNCREATEWINDOWEXAPROC pCreateWindowExA = NULL;
+static HMODULE hUser32Module = NULL;
+static PFNCREATEWINDOWEXAPROC pCreateWindowExA = NULL;
 
 /**
  * CreateWindowExAHook is a convenience patch that prevents PangYa from
@@ -13,5 +14,6 @@ HWND STDCALL CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpW
 }
 
 VOID InitWindowHook() {
-    pCreateWindowExA = HookFunc(CreateWindowExA, CreateWindowExAHook);
+    hUser32Module = LoadLib("user32");
+    pCreateWindowExA = HookProc(hUser32Module, "CreateWindowExA", CreateWindowExAHook);
 }

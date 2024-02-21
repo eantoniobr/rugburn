@@ -1,37 +1,23 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClCompile Include="src\bootstrap.c" />
     <ClCompile Include="src\common.c" />
+    <ClCompile Include="src\dll\rugburn\main.c" />
     <ClCompile Include="src\hooks\hooks.c" />
     <ClCompile Include="src\hooks\kernel32\inject.c" />
     <ClCompile Include="src\hooks\user32\window.c" />
     <ClCompile Include="src\hooks\wininet\netredir.c" />
     <ClCompile Include="src\hooks\ws2_32\redir.c" />
     <ClCompile Include="src\ijlfwd.c" />
-    <ClCompile Include="src\main.c" />
-    <ClCompile Include="src\ntdll.c" />
     <ClCompile Include="src\patch.c" />
     <ClCompile Include="src\third_party\lend\ld32.c" />
     <ClCompile Include="src\json.c" />
     <ClCompile Include="src\regex.c" />
     <ClCompile Include="src\config.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\common-fnptr.h" />
-    <ClInclude Include="src\common.h" />
-    <ClInclude Include="src\hooks\hooks.h" />
-    <ClInclude Include="src\hooks\kernel32\inject.h" />
-    <ClInclude Include="src\hooks\user32\window.h" />
-    <ClInclude Include="src\hooks\wininet\netredir.h" />
-    <ClInclude Include="src\hooks\ws2_32\redir.h" />
-    <ClInclude Include="src\ijlfwd.h" />
-    <ClInclude Include="src\inject.h" />
-    <ClInclude Include="src\ntdll.h" />
-    <ClInclude Include="src\patch.h" />
-    <ClInclude Include="src\third_party\lend\ld32.h" />
-    <ClInclude Include="src\json.h" />
-    <ClInclude Include="src\regex.h" />
-    <ClInclude Include="src\config.h" />
+    <ClCompile Include="src\hooks\msvcr100\msvcr100.c" />
+    <ClCompile Include="src\patch_usa_852.c" />
+    <ClCompile Include="src\hex.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="exportvs.def" />

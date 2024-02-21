@@ -1,39 +1,26 @@
 #include "patch.h"
 #include "third_party/lend/ld32.h"
 
+static PFNWRITEPROCESSMEMORYPROC pWriteProcessMemory = NULL;
+static PFNFLUSHINSTRUCTIONCACHEPROC pFlushInstructionCache = NULL;
+static PFNVIRTUALPROTECTPROC pVirtualProtect = NULL;
+static PFNGETCURRENTPROCESSPROC pGetCurrentProcess = NULL;
+
+VOID InitPatch() {
+    pWriteProcessMemory = GetProc(hKernel32Module, "WriteProcessMemory");
+    pFlushInstructionCache = GetProc(hKernel32Module, "FlushInstructionCache");
+    pVirtualProtect = GetProc(hKernel32Module, "VirtualProtect");
+    pGetCurrentProcess = GetProc(hKernel32Module, "GetCurrentProcess");
+}
+
 /**
- * Writes data into the remote process.
+ * Patch is a small routine for patching arbitrary memory.
  */
-VOID RemotePatch(HANDLE hProcess, DWORD dwAddr, PBYTE pbData, PBYTE pbBackup, DWORD cbData) {
-    DWORD dwOldProtect;
-
-    // Unprotect function.
-    if (VirtualProtectEx(hProcess, (LPVOID)dwAddr, cbData, PAGE_EXECUTE_READWRITE, &dwOldProtect) == 0) {
-        FatalError("Failed to remote patch: VirtualProtect failed. (%08x)", GetLastError());
-    }
-
-    // Optional: Backup remote memory.
-    if (pbBackup) {
-        if (!ReadProcessMemory(hProcess, (LPVOID)dwAddr, pbBackup, cbData, NULL)) {
-            FatalError("Failed to remote patch: ReadProcessMemory failed. (%08x)", GetLastError());
-        }
-    }
-
-    // Patch remote memory.
-    if (!WriteProcessMemory(hProcess, (LPVOID)dwAddr, pbData, cbData, NULL)) {
-        FatalError("Failed to remote patch: WriteProcessMemory failed. (%08x)", GetLastError());
-    }
-
-    // Re-protect function.
-    if (VirtualProtectEx(hProcess, (LPVOID)dwAddr, cbData, dwOldProtect, &dwOldProtect) == 0) {
-        FatalError("Failed to remote patch: VirtualProtect failed. (%08x)", GetLastError());
-    }
-
-    // Flush the icache. Otherwise, it is theoretically possible that our
-    // patch will not work consistently.
-    if (FlushInstructionCache(hProcess, (LPVOID)dwAddr, cbData) == 0) {
-        FatalError("Failed to remote patch: FlushInstructionCache failed. (%08x)", GetLastError());
-    }
+VOID Patch(LPVOID dst, LPVOID src, DWORD size) {
+    DWORD OldProtection;
+    pVirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &OldProtection);
+    memcpy(dst, src, size);
+    pVirtualProtect(dst, size, OldProtection, &OldProtection);
 }
 
 /**
@@ -48,26 +35,26 @@ VOID InstallHook(PVOID pfnProc, PVOID pfnTargetProc) {
     CHAR pbHook[6] = {0xE9, 0x00, 0x00, 0x00, 0x00, 0xC3};
 
     // Unprotect function.
-    if (VirtualProtect(pfnProc, 6, PAGE_EXECUTE_READWRITE, &dwOldProtect) == 0) {
-        FatalError("Failed to install hook: VirtualProtect failed. (%08x)", GetLastError());
+    if (pVirtualProtect(pfnProc, 6, PAGE_EXECUTE_READWRITE, &dwOldProtect) == 0) {
+        FatalError("Failed to install hook: VirtualProtect failed. (%08x)", LastErr());
     }
 
     // Create and install hook.
     dwRelAddr = ((DWORD)pfnTargetProc - (DWORD)pfnProc - 5);
     memcpy(&pbHook[1], &dwRelAddr, 4);
-    if (!WriteProcessMemory(GetCurrentProcess(), pfnProc, pbHook, 6, NULL)) {
-        FatalError("Failed to install hook: WriteProcessMemory failed. (%08x)", GetLastError());
+    if (!pWriteProcessMemory(pGetCurrentProcess(), pfnProc, pbHook, 6, NULL)) {
+        FatalError("Failed to install hook: WriteProcessMemory failed. (%08x)", LastErr());
     }
 
     // Re-protect function.
-    if (VirtualProtect(pfnProc, 6, dwOldProtect, &dwOldProtect) == 0) {
-        FatalError("Failed to install hook: VirtualProtect failed. (%08x)", GetLastError());
+    if (pVirtualProtect(pfnProc, 6, dwOldProtect, &dwOldProtect) == 0) {
+        FatalError("Failed to install hook: VirtualProtect failed. (%08x)", LastErr());
     }
 
     // Flush the icache. Otherwise, it is theoretically possible that our
     // patch will not work consistently.
-    if (FlushInstructionCache(GetCurrentProcess(), pfnProc, 6) == 0) {
-        FatalError("Failed to install hook: FlushInstructionCache failed. (%08x)", GetLastError());
+    if (pFlushInstructionCache(pGetCurrentProcess(), pfnProc, 6) == 0) {
+        FatalError("Failed to install hook: FlushInstructionCache failed. (%08x)", LastErr());
     }
 }
 
@@ -105,7 +92,7 @@ PCHAR BuildTrampoline(DWORD fn, DWORD prefixLen) {
     // Extra byte is for a return so that the instruction after the jump will
     // be valid. I'm not sure if this is strictly necessary.
     trampolineLen = prefixLen + 6;
-    codeblock = LocalAlloc(0, trampolineLen);
+    codeblock = AllocMem(trampolineLen);
 
     // Copy the prefix into our newly minted codeblock.
     memcpy(codeblock, (void *)fn, prefixLen);
@@ -123,7 +110,7 @@ PCHAR BuildTrampoline(DWORD fn, DWORD prefixLen) {
     codeblock[prefixLen + 5] = 0xC3;
 
     // Mark the codeblock as executable.
-    VirtualProtect(codeblock, trampolineLen, PAGE_EXECUTE_READWRITE, &oldProtect);
+    pVirtualProtect(codeblock, trampolineLen, PAGE_EXECUTE_READWRITE, &oldProtect);
 
     return codeblock;
 }
@@ -155,4 +142,124 @@ PVOID HookProc(HMODULE hModule, LPCSTR szName, PVOID pfnTargetProc) {
     pfnTrampolineProc = HookFunc(pfnLibraryProc, pfnTargetProc);
 
     return pfnTrampolineProc;
+}
+
+/**
+ * Creates a thunk that translates from MSVC thiscall to stdcall calling
+ * convention. The returned function pointer can be used in MSVC ABI vtables.
+ * The this pointer will be passed in to pfnProc as the first parameter.
+ */
+PVOID BuildThiscallToStdcallThunk(PVOID pfnProc) {
+    DWORD thunkLen = 9;
+    DWORD oldProtect;
+    DWORD relAddr;
+    PCHAR codeblock;
+
+    // Allocate data for thunk.
+    codeblock = AllocMem(thunkLen);
+
+    // Calculate the jump address.
+    relAddr = (DWORD)pfnProc - (DWORD)&codeblock[8];
+
+    // Create calling convention thunk.
+    // We want to put the this pointer, from ecx, onto the stack at the
+    // left-most argument. Since we were called via stdcall, return address is
+    // the current value on the stack, followed by left-most argument. So, pop
+    // the return address, push the this pointer, and then push the return
+    // address back onto the stack.
+    codeblock[0] = 0x58; // pop eax
+    codeblock[1] = 0x51; // push ecx
+    codeblock[2] = 0x50; // push eax
+    codeblock[3] = 0xE9; // jmp
+    memcpy(&codeblock[4], &relAddr, 4);
+
+    // ...and a return at the end, for good measure.
+    codeblock[8] = 0xC3;
+
+    // Mark the codeblock as executable.
+    pVirtualProtect(codeblock, thunkLen, PAGE_EXECUTE_READWRITE, &oldProtect);
+
+    return codeblock;
+}
+
+/**
+ * Creates a thunk that translates from stdcall to MSVC thiscall calling
+ * convention. The returned function pointer can be called using stdcall.
+ * The first parameter will be used as the this pointer.
+ */
+PVOID BuildStdcallToThiscallThunk(PVOID pfnProc) {
+    DWORD thunkLen = 9;
+    DWORD oldProtect;
+    DWORD relAddr;
+    PCHAR codeblock;
+
+    // Allocate data for thunk.
+    codeblock = AllocMem(thunkLen);
+
+    // Calculate the jump address.
+    relAddr = (DWORD)pfnProc - (DWORD)&codeblock[8];
+
+    // Create calling convention thunk.
+    // We want to put the this pointer, from the stack at the left-most
+    // argument, into ecx. Since we were called via thiscall, return address is
+    // the current value on the stack, followed by the this pointer argument.
+    // So, pop the return address, pop the this pointer to ecx, and then push
+    // the return address back onto the stack.
+    codeblock[0] = 0x58; // pop eax
+    codeblock[1] = 0x59; // pop ecx
+    codeblock[2] = 0x50; // push eax
+    codeblock[3] = 0xE9; // jmp
+    memcpy(&codeblock[4], &relAddr, 4);
+
+    // ...and a return at the end, for good measure.
+    codeblock[8] = 0xC3;
+
+    // Mark the codeblock as executable.
+    pVirtualProtect(codeblock, thunkLen, PAGE_EXECUTE_READWRITE, &oldProtect);
+
+    return codeblock;
+}
+
+/**
+ * Creates a thunk that translates from stdcall to an MSVC thiscall through a
+ * virtual function pointer table entry. The returned function pointer can be
+ * called using stdcall. The first parameter will be used as the this pointer.
+ */
+PVOID BuildStdcallToVirtualThiscallThunk(DWORD dwVtblOffset) {
+    DWORD thunkLen = 12;
+    DWORD oldProtect;
+    PCHAR codeblock;
+
+    // Allocate data for thunk.
+    codeblock = AllocMem(thunkLen);
+
+    // First, set up the stack as above. So, pop off return address into eax,
+    // pop off this pointer into ecx, then push return address back to stack.
+    codeblock[0] = 0x58; // pop eax
+    codeblock[1] = 0x59; // pop ecx
+    codeblock[2] = 0x50; // push eax
+
+    // Now, ecx contains the this pointer. The first DWORD in the object is the
+    // virtual function pointer table. Take the indirection of ecx and store it
+    // in eax. After this, eax contains the first address of the virtual
+    // function table.
+    codeblock[3] = 0x8b; // mov eax, DWORD PTR [ecx]
+    codeblock[4] = 0x01;
+
+    // Perform the actual dispatch by calling one more indirection, the address
+    // pointed to by the entry dwVtblOffset bytes into the virtual function
+    // pointer table. Note that a regular assembler will translate smaller
+    // offsets (<128) to a smaller opcode. For simplicity, we just use a DWORD
+    // sized offset every time.
+    codeblock[5] = 0xff; // jmp DWORD PTR [eax+dwVtblOffset]
+    codeblock[6] = 0xa0;
+    memcpy(&codeblock[7], &dwVtblOffset, 4);
+
+    // ...and as usual, a return at the end, for good measure.
+    codeblock[11] = 0xC3;
+
+    // Mark the codeblock as executable.
+    pVirtualProtect(codeblock, thunkLen, PAGE_EXECUTE_READWRITE, &oldProtect);
+
+    return codeblock;
 }

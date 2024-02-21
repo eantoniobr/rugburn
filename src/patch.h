@@ -3,11 +3,15 @@
 
 #include "common.h"
 
-VOID RemotePatch(HANDLE hProcess, DWORD dwAddr, PBYTE pbData, PBYTE pbBackup, DWORD cbData);
+VOID InitPatch();
+VOID Patch(LPVOID dst, LPVOID src, DWORD size);
 VOID InstallHook(PVOID pfnProc, PVOID pfnTargetProc);
 DWORD CountOpcodeBytes(FARPROC fn, DWORD minBytes);
 PCHAR BuildTrampoline(DWORD fn, DWORD prefixLen);
 PVOID HookFunc(PVOID pfnProc, PVOID pvTargetProc);
 PVOID HookProc(HMODULE hModule, LPCSTR szName, PVOID pfnTargetProc);
+PVOID BuildThiscallToStdcallThunk(PVOID pfnProc);
+PVOID BuildStdcallToThiscallThunk(PVOID pfnProc);
+PVOID BuildStdcallToVirtualThiscallThunk(DWORD dwVtblOffset);
 
 #endif

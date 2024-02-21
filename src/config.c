@@ -1,5 +1,7 @@
 #include "config.h"
 #include "json.h"
+#include "hex.h"
+#include "patch.h"
 
 LPCSTR RugburnConfigFilename = "rugburn.json";
 RUGBURNCONFIG Config;
@@ -49,12 +51,26 @@ void ReadJsonPortRewriteRuleArray(LPSTR *json) {
     Config.NumPortRewriteRules++;
 }
 
+void ReadJsonPatchAddressMap(LPSTR *json, LPCSTR key) {
+	LPCSTR value = JsonReadString(json);
+
+	if (Config.NumPatchAddress == MAXPATCHADDRESS) {
+		FatalError("Reached maximum number of Patch address!");
+	}
+
+	Config.PatchAddress[Config.NumPatchAddress].addr = ParseAddress(key);
+	ParsePatch(value, &Config.PatchAddress[Config.NumPatchAddress].patch, &Config.PatchAddress[Config.NumPatchAddress].patchLen);
+	Config.NumPatchAddress++;
+}
+
 void ReadJsonConfigMap(LPSTR *json, LPCSTR key) {
     if (!strcmp(key, "UrlRewrites")) {
         JsonReadMap(json, ReadJsonUrlRewriteRuleMap);
     } else if (!strcmp(key, "PortRewrites")) {
         JsonReadArray(json, ReadJsonPortRewriteRuleArray);
-    } else {
+    } else if (!strcmp(key, "PatchAddress")) {
+		JsonReadMap(json, ReadJsonPatchAddressMap);
+	} else {
         FatalError("Unexpected JSON config key '%s'", key);
     }
 }
@@ -64,7 +80,7 @@ void LoadJsonRugburnConfig() {
     if (!FileExists(RugburnConfigFilename)) {
         Warning("No rugburn.json config file found. An example configuration will be saved.");
         WriteEntireFile(RugburnConfigFilename, ExampleRugburnConfig, sizeof(ExampleRugburnConfig) - 1);
-        json = StrDupA(ExampleRugburnConfig);
+        json = DupStr(ExampleRugburnConfig);
     } else {
         json = ReadEntireFile(RugburnConfigFilename);
     }
@@ -84,10 +100,6 @@ LPCSTR RewriteURL(LPCSTR url) {
     }
     return NULL;
 }
-
-extern PFNGETADDRINFO pGetAddrInfo;
-extern PFNFREEADDRINFO pFreeAddrInfo;
-extern PFNHTONSPROC pHtons;
 
 BOOL RewriteAddr(LPSOCKADDR_IN addr) {
     ADDRINFOA hints;
@@ -126,4 +138,20 @@ BOOL RewriteAddr(LPSOCKADDR_IN addr) {
     }
 
     return FALSE;
+}
+
+void PatchAddress() {
+    int i;
+    for (i = 0; i < Config.NumPatchAddress; i++) {
+        if (Config.PatchAddress[i].addr == 0) {
+            Warning("Patch %d at address 0 will be ignored.", i);
+            continue;
+        }
+        if (Config.PatchAddress[i].patchLen == 0) {
+            Warning("Patch %d is empty.", i);
+            continue;
+        }
+        Patch((LPVOID)Config.PatchAddress[i].addr, Config.PatchAddress[i].patch, Config.PatchAddress[i].patchLen);
+        Log("PatchAddress: 0x%08lX, Len: %d, Value: %s\r\n", Config.PatchAddress[i].addr, Config.PatchAddress[i].patchLen, Config.PatchAddress[i].patch);
+    }
 }

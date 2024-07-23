@@ -1,3 +1,19 @@
+/**
+ * Copyright 2018-2024 John Chadwick <john@jchw.io>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose
+ * with or without fee is hereby granted, provided that the above copyright notice
+ * and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+ * THIS SOFTWARE.
+ */
+
 #ifndef COMMON_H
 #define COMMON_H
 
@@ -24,20 +40,9 @@ typedef enum _PANGYAVER {
     PANGYA_BR,
     PANGYA_TW,
     PANGYA_US,
-	PANGYA_EU,
-	PANGYA_SEA
+    PANGYA_EU,
+    PANGYA_SEA
 } PANGYAVER;
-
-extern HMODULE hKernel32Module;
-extern HMODULE hWinsock;
-extern PFNHTONSPROC pHtons;
-extern PFNGETADDRINFO pGetAddrInfo;
-extern PFNFREEADDRINFO pFreeAddrInfo;
-extern PFNVIRTUALQUERYPROC pVirtualQuery;
-extern PFNGETLASTERRORPROC pGetLastError;
-extern PFNGETMODULEHANDLEAPROC pGetModuleHandleA;
-
-VOID InitCommon();
 
 // C standard library functions
 int strcmp(LPCSTR dest, LPCSTR src);

@@ -1,4 +1,19 @@
-#include "../../bootstrap.h"
+/**
+ * Copyright 2018-2024 John Chadwick <john@jchw.io>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose
+ * with or without fee is hereby granted, provided that the above copyright notice
+ * and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+ * THIS SOFTWARE.
+ */
+
 #include "../../common.h"
 #include "../../hex.h"
 #include "../../json.h"
@@ -75,6 +90,15 @@ const DISPATCH_TESTCASE dispatch_tests[] = {
     {"STDCALL -> THISCALL -> STDCALL", DispatchThroughThiscallTest},
 };
 
+const LPCSTR ld_tests[] = {
+    "5531d289e583ec14",       "5589e5538d45e4",         "5589e5575653",         "5589e583ec10",
+    "55b911000000",           "6a1868b82f817c",         "6a2468685b1c77",       "8bff558bec33c0",
+    "8bff558bec51",           "8bff558bec53",           "8bff558bec56",         "8bff558bec5d",
+    "8bff558bec64a118000000", "8bff558bec64a130000000", "8bff558bec6801000040", "8bff558bec6a00",
+    "8bff558bec83ec0c",       "8bff558bec83ec18",       "8bff558bec83ec3c",     "ff25241af476",
+    "ff259017f476",
+};
+
 #define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
 
 extern void __cdecl start(void) {
@@ -84,9 +108,7 @@ extern void __cdecl start(void) {
     totaltests += COUNT_OF(addr_tests);
     totaltests += COUNT_OF(patch_tests);
     totaltests += COUNT_OF(dispatch_tests);
-
-    BootstrapPEB();
-    InitCommon();
+    totaltests += COUNT_OF(ld_tests);
 
     ConsoleLog("1..%d\r\n", totaltests);
 
@@ -154,9 +176,23 @@ extern void __cdecl start(void) {
         FreeMem(result);
     }
 
-    InitPatch();
     for (i = 0; i < COUNT_OF(dispatch_tests); ++i) {
         dispatch_tests[i].proc(&dispatch_tests[i], ++testnum);
+    }
+
+    for (i = 0; i < COUNT_OF(ld_tests); ++i) {
+        BYTE bTestBuffer[16];
+        DWORD dwLengthExpected, dwLengthActual;
+        ++testnum;
+        memset(bTestBuffer, 0x90, sizeof(bTestBuffer));
+        dwLengthExpected = FromHex(ld_tests[i], bTestBuffer);
+        dwLengthActual = CountOpcodeBytes((PVOID)bTestBuffer, 6);
+        if (dwLengthActual == dwLengthExpected) {
+            ConsoleLog("ok %d - CountOpcodeBytes(%s)\r\n", testnum, ld_tests[i], dwLengthExpected);
+        } else {
+            ConsoleLog("not ok %d - CountOpcodeBytes(%s)\r\n# expected %d, got %d\r\n", testnum,
+                       ld_tests[i], dwLengthExpected, dwLengthActual);
+        }
     }
 
     Exit(result);

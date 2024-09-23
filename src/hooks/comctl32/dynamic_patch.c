@@ -30,7 +30,7 @@ static PFNGETSTARTUPINFOWPROC pGetStartupInfoW = NULL;
 
 #define GETRETURNADDRESS(_FirstParameter) *(((DWORD *)&(_FirstParameter)) - 1)
 
-BOOL compare_virtual_memory(DWORD _dwAddress, DWORD _value) {
+static BOOL compare_virtual_memory(DWORD _dwAddress, DWORD _value) {
     MEMORY_BASIC_INFORMATION mbi;
 
     if (VirtualQuery((void *)_dwAddress, &mbi, sizeof(mbi)) == 0) {
@@ -50,7 +50,7 @@ BOOL compare_virtual_memory(DWORD _dwAddress, DWORD _value) {
     return TRUE;
 }
 
-BOOL isModuleAllocationBase(DWORD _dwAddress) {
+static BOOL isModuleAllocationBase(DWORD _dwAddress) {
     MEMORY_BASIC_INFORMATION mbi;
 
     if (VirtualQuery((void *)_dwAddress, &mbi, sizeof(mbi)) == 0) {
@@ -74,7 +74,7 @@ BOOL isModuleAllocationBase(DWORD _dwAddress) {
 /**
  * Implements the GameGuard patches for Pangya US.
  */
-void PatchGG_US() {
+static void PatchGG_US() {
     if (compare_virtual_memory(0x00A495E0, 0x8F143D83)) {
         Patch((LPVOID)0x00A495E0, "\xC3\x90\x90\x90\x90\x90\x90", 7);
         Patch((LPVOID)0x00A49670, "\xC3\x90\x90\x90\x90\x90\x90", 7);
@@ -150,7 +150,7 @@ void PatchGG_US() {
 /**
  * Implements the GameGuard patches for Pangya JP.
  */
-void PatchGG_JP() {
+static void PatchGG_JP() {
     if (compare_virtual_memory(0x00A5CD10, 0x1BA43D83)) {
         Patch((LPVOID)0x00A5CD10, "\xC3\x90\x90\x90\x90\x90\x90", 7);
         Patch((LPVOID)0x00A5CDA0, "\xC3\x90\x90\x90\x90\x90\x90", 7);
@@ -194,7 +194,7 @@ void PatchGG_JP() {
     }
 }
 
-void PatchGG_TW() {
+static void PatchGG_TW() {
     if (compare_virtual_memory(0x00643743, 0xFF6B98E8)) {
         Patch((LPVOID)0x00643743, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched GG check routines (TW S2 3.00a)\r\n");
@@ -204,17 +204,32 @@ void PatchGG_TW() {
     }
 }
 
-void PatchHS_ID() {
+static void PatchHS_ID() {
     if (compare_virtual_memory(0x005FC66D, 0xFF071EE8)) {
         Patch((LPVOID)0x005FC66D, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched HSHIELD check routines (INA S1 2.12a)\r\n");
     }
 }
 
-void PatchHS_BR() {
-    if (compare_virtual_memory(0x005FE1B3, 0xFF8858E8)) {
+static void PatchHS_BR() {
+    if (compare_virtual_memory(0x005FE093, 0xFF8858E8)) {
+        Patch((LPVOID)0x005FE093, "\xE9\x00\x00\x00\x00", 5);
+        Log("Patched HSHIELD check routines (BR S1 2.14a)\r\n");
+    } else if (compare_virtual_memory(0x005FE0B3, 0xFF8858E8)) {
+        Patch((LPVOID)0x005FE0B3, "\xE9\x00\x00\x00\x00", 5);
+        Log("Patched HSHIELD check routines (BR S1 2.14b)\r\n");
+    } else if (compare_virtual_memory(0x005FE1A3, 0xFF8858E8)) {
+        Patch((LPVOID)0x005FE1A3, "\xE9\x00\x00\x00\x00", 5);
+        Log("Patched HSHIELD check routines (BR S1 2.15)\r\n");
+    } else if (compare_virtual_memory(0x005FE1B3, 0xFF8858E8)) {
         Patch((LPVOID)0x005FE1B3, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched HSHIELD check routines (BR S1 2.15a)\r\n");
+    } else if (compare_virtual_memory(0x005FE1D3, 0xFF8838E8)) {
+        Patch((LPVOID)0x005FE1D3, "\xE9\x00\x00\x00\x00", 5);
+        Log("Patched HSHIELD check routines (BR S1 2.16)\r\n");
+    } else if (compare_virtual_memory(0x006020A3, 0xFF86F8E8)) {
+        Patch((LPVOID)0x006020A3, "\xE9\x00\x00\x00\x00", 5);
+        Log("Patched HSHIELD check routines (BR S1 2.20c)\r\n");
     } else if (compare_virtual_memory(0x0065B4B2, 0xFF6299E8)) {
         Patch((LPVOID)0x0065B4B2, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched HSHIELD check routines (BR S2 3.00)\r\n");
@@ -224,7 +239,7 @@ void PatchHS_BR() {
     }
 }
 
-void PatchGG_KR() {
+static void PatchGG_KR() {
     if (compare_virtual_memory(0x00634EAD, 0xFF178EE8)) {
         Patch((LPVOID)0x00634EAD, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched GG check routines (KR S2 3.26a)\r\n");
@@ -237,13 +252,19 @@ void PatchGG_KR() {
     }
 }
 
-void PatchGG_TH() {
+static void PatchGG_TH() {
     if (compare_virtual_memory(0x005F678A, 0xFF5B21E8)) {
         Patch((LPVOID)0x005F678A, "\xB8\x01\x00\x00\x00", 5);
         Log("Patched GG check routines (TH S1 217)\r\n");
     } else if (compare_virtual_memory(0x0064B60B, 0xFF77A0E8)) {
         Patch((LPVOID)0x0064B60B, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched GG check routines (TH S2 300b1)\r\n");
+    } else if (compare_virtual_memory(0x0066589B, 0xFF6E30E8)) {
+        Patch((LPVOID)0x0066589B, "\xE9\x00\x00\x00\x00", 5);
+        Log("Patched GG check routines (TH S2 312b)\r\n");
+    } else if (compare_virtual_memory(0x0066C24B, 0xFF6E40E8)) {
+        Patch((LPVOID)0x0066C24B, "\xE9\x00\x00\x00\x00", 5);
+        Log("Patched GG check routines (TH S2 321a)\r\n");
     } else if (compare_virtual_memory(0x0076F4F4, 0xFEBED7E8)) {
         Patch((LPVOID)0x0076F4F4, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched GG check routines (TH S4 580)\r\n");
@@ -259,7 +280,7 @@ void PatchGG_TH() {
     }
 }
 
-void PatchGG_SEA() {
+static void PatchGG_SEA() {
     if (compare_virtual_memory(0x00611CF8, 0xFF86D3E8)) {
         Patch((LPVOID)0x00611CF8, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched GG check routines (SEA S1 2.16a)\r\n");
@@ -269,7 +290,7 @@ void PatchGG_SEA() {
     }
 }
 
-void PatchGG_EU() {
+static void PatchGG_EU() {
     if (compare_virtual_memory(0x006160D1, 0xFF161AE8)) {
         Patch((LPVOID)0x006160D1, "\xE9\x00\x00\x00\x00", 5);
         Log("Patched GG check routines (EU S2 3.01a)\r\n");
@@ -282,7 +303,7 @@ void PatchGG_EU() {
     }
 }
 
-void oneExec_PatchDynamicAndGG() {
+static void oneExec_PatchDynamicAndGG() {
     static int one = 0;
     PANGYAVER pangyaVersion;
 
@@ -332,7 +353,7 @@ void oneExec_PatchDynamicAndGG() {
     PatchAddress();
 }
 
-BOOL STDCALL InitCommonControlsExHook(const INITCOMMONCONTROLSEX *picce) {
+static BOOL STDCALL InitCommonControlsExHook(const INITCOMMONCONTROLSEX *picce) {
     BOOL ret = pInitCommonControlsEx(picce);
 
     oneExec_PatchDynamicAndGG();
@@ -340,14 +361,14 @@ BOOL STDCALL InitCommonControlsExHook(const INITCOMMONCONTROLSEX *picce) {
     return ret;
 }
 
-VOID STDCALL GetStartupInfoAHook(LPSTARTUPINFOA lpStartupInfo) {
+static VOID STDCALL GetStartupInfoAHook(LPSTARTUPINFOA lpStartupInfo) {
     pGetStartupInfoA(lpStartupInfo);
 
     if (isModuleAllocationBase(GETRETURNADDRESS(lpStartupInfo)))
         oneExec_PatchDynamicAndGG();
 }
 
-VOID STDCALL GetStartupInfoWHook(LPSTARTUPINFOW lpStartupInfo) {
+static VOID STDCALL GetStartupInfoWHook(LPSTARTUPINFOW lpStartupInfo) {
     pGetStartupInfoW(lpStartupInfo);
 
     if (isModuleAllocationBase(GETRETURNADDRESS(lpStartupInfo)))

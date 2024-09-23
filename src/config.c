@@ -37,7 +37,7 @@ const char ExampleRugburnConfig[] =
     "  ]\r\n"
     "}\r\n";
 
-void ReadJsonUrlRewriteRuleMap(LPSTR *json, LPCSTR key) {
+static void ReadJsonUrlRewriteRuleMap(LPSTR *json, LPCSTR key) {
     LPCSTR value = JsonReadString(json);
 
     if (Config.NumUrlRewriteRules == MAXURLREWRITES) {
@@ -49,7 +49,7 @@ void ReadJsonUrlRewriteRuleMap(LPSTR *json, LPCSTR key) {
     Config.NumUrlRewriteRules++;
 }
 
-void ReadJsonPortRewriteRuleMap(LPSTR *json, LPCSTR key) {
+static void ReadJsonPortRewriteRuleMap(LPSTR *json, LPCSTR key) {
     if (!strcmp(key, "FromPort")) {
         Config.PortRewriteRules[Config.NumPortRewriteRules].fromport = JsonReadInteger(json);
     } else if (!strcmp(key, "ToPort")) {
@@ -61,7 +61,7 @@ void ReadJsonPortRewriteRuleMap(LPSTR *json, LPCSTR key) {
     }
 }
 
-void ReadJsonPortRewriteRuleArray(LPSTR *json) {
+static void ReadJsonPortRewriteRuleArray(LPSTR *json) {
     if (Config.NumPortRewriteRules == MAXURLREWRITES) {
         FatalError("Reached maximum number of URL rewrite rules!");
     }
@@ -70,7 +70,7 @@ void ReadJsonPortRewriteRuleArray(LPSTR *json) {
     Config.NumPortRewriteRules++;
 }
 
-void ReadJsonPatchAddressMap(LPSTR *json, LPCSTR key) {
+static void ReadJsonPatchAddressMap(LPSTR *json, LPCSTR key) {
     LPCSTR value = JsonReadString(json);
 
     if (Config.NumPatchAddress == MAXPATCHADDRESS) {
@@ -83,13 +83,27 @@ void ReadJsonPatchAddressMap(LPSTR *json, LPCSTR key) {
     Config.NumPatchAddress++;
 }
 
-void ReadJsonConfigMap(LPSTR *json, LPCSTR key) {
+static void ReadJsonBypassSelfSignedCertificate(LPSTR *json, LPCSTR key) {
+    LPCSTR value = JsonReadString(json);
+
+    Config.bBypassSelfSignedCertificate = FALSE;
+
+    if (value == NULL || value == "")
+        return;
+
+    if (_stricmp(value, "TRUE") == 0)
+        Config.bBypassSelfSignedCertificate = TRUE;
+}
+
+static void ReadJsonConfigMap(LPSTR *json, LPCSTR key) {
     if (!strcmp(key, "UrlRewrites")) {
         JsonReadMap(json, ReadJsonUrlRewriteRuleMap);
     } else if (!strcmp(key, "PortRewrites")) {
         JsonReadArray(json, ReadJsonPortRewriteRuleArray);
     } else if (!strcmp(key, "PatchAddress")) {
         JsonReadMap(json, ReadJsonPatchAddressMap);
+    } else if (!strcmp(key, "BypassSelfSignedCertificate")) {
+        ReadJsonBypassSelfSignedCertificate(json, key);
     } else {
         FatalError("Unexpected JSON config key '%s'", key);
     }
@@ -103,7 +117,7 @@ void LoadJsonRugburnConfig() {
                         sizeof(ExampleRugburnConfig) - 1);
         json = DupStr(ExampleRugburnConfig);
     } else {
-        json = ReadEntireFile(RugburnConfigFilename);
+        json = ReadEntireFile(RugburnConfigFilename, NULL);
     }
     memset(&Config, 0, sizeof(RUGBURNCONFIG));
     JsonReadMap(&json, ReadJsonConfigMap);

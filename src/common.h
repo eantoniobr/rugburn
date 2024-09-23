@@ -14,8 +14,7 @@
  * THIS SOFTWARE.
  */
 
-#ifndef COMMON_H
-#define COMMON_H
+#pragma once
 
 #define STDCALL __stdcall
 #define EXPORT __export
@@ -61,7 +60,7 @@ LPSTR DupStr(LPCSTR src);
 
 // Utility functions
 BOOL FileExists(LPCSTR szPath);
-LPSTR ReadEntireFile(LPCSTR szPath);
+LPSTR ReadEntireFile(LPCSTR szPath, LPDWORD dwFileSize);
 VOID WriteEntireFile(LPCSTR szPath, LPCSTR data, DWORD dwBytesToWrite);
 VOID FatalError(PCHAR fmt, ...);
 VOID Warning(PCHAR fmt, ...);
@@ -76,5 +75,3 @@ VOID Exit(DWORD dwExitCode);
 PANGYAVER DetectPangyaVersion();
 PSTR GetPangyaArg(PANGYAVER pangyaVersion);
 PSTR GetSelfPath();
-
-#endif

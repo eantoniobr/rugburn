@@ -14,8 +14,7 @@
  * THIS SOFTWARE.
  */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 #include "common.h"
 #include "regex.h"
@@ -50,6 +49,8 @@ typedef struct _RUGBURNCONFIG {
 
     PATCHADDRESS PatchAddress[MAXPATCHADDRESS];
     int NumPatchAddress;
+
+    BOOL bBypassSelfSignedCertificate;
 } RUGBURNCONFIG, *LPRUGBURNCONFIG;
 
 extern RUGBURNCONFIG Config;
@@ -58,5 +59,3 @@ void LoadJsonRugburnConfig();
 LPCSTR RewriteURL(LPCSTR url);
 BOOL RewriteAddr(LPSOCKADDR_IN addr);
 void PatchAddress();
-
-#endif
